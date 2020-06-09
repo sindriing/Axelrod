@@ -49,6 +49,7 @@ class MoranProcess(object):
         turns: int = DEFAULT_TURNS,
         prob_end: float = None,
         noise: float = 0,
+        modifier = False, # sindri added
         game: Game = None,
         deterministic_cache: DeterministicCache = None,
         mutation_rate: float = 0.0,
@@ -120,6 +121,7 @@ class MoranProcess(object):
         self.prob_end = prob_end
         self.game = game
         self.noise = noise
+        self.modifier = modifier
         self.initial_players = players  # save initial population
         self.players = []  # type: List
         self.populations = []  # type: List
@@ -365,7 +367,10 @@ class MoranProcess(object):
                 deterministic_cache=self.deterministic_cache,
             )
             match.play()
-            match_scores = match.final_score_per_turn()
+            if self.modifier:
+                match_scores = match.modified_final_score_per_turn()
+            else:
+                match_scores = match.final_score_per_turn()
             scores[i] += match_scores[0]
             scores[j] += match_scores[1]
         self.score_history.append(scores)

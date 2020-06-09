@@ -7,6 +7,7 @@ from axelrod.action import Action
 from axelrod import Classifiers
 from axelrod.game import Game
 from .deterministic_cache import DeterministicCache
+from numpy import mean
 
 C, D = Action.C, Action.D
 
@@ -28,6 +29,7 @@ class Match(object):
         game=None,
         deterministic_cache=None,
         noise=0,
+        modifiers=False,
         match_attributes=None,
         reset=True,
     ):
@@ -179,6 +181,13 @@ class Match(object):
     def final_score_per_turn(self):
         """Returns the mean score per round for a Match."""
         return iu.compute_final_score_per_turn(self.result, self.game)
+
+    def modified_final_score_per_turn(self):
+        """Returns the mean score per round for Match including the modifiers"""
+        modifiers = (self._players[0].modifiers, self._players[1].modifiers)
+        modifier_average = [mean(m) for m in modifiers]
+        score_average = iu.compute_final_score_per_turn(self.result, self.game)
+        return [s + m for s, m in zip(modifier_average, score_average)]
 
     def winner(self):
         """Returns the winner of the Match."""
