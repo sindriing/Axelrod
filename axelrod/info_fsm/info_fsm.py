@@ -1,15 +1,13 @@
 # Test file
 import axelrod as axl
-import random
+import numpy.random as random
+import numpy as np
 from axelrod.action import Action
 from axelrod.player import Player
 from axelrod.match import Match
 from axelrod.moran import MoranProcess
+from axelrod.evolvable_player import EvolvablePlayer
 from typing import NamedTuple
-
-import matplotlib
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
 
 C,D = Action.C, Action.D
 
@@ -34,38 +32,26 @@ defector_formula = ((0,0,0,D),)
 class State(NamedTuple):
     transitions: tuple
     wait: int
-    action: axl.Action
+    action: Action
         
 
 # Action enum to int
 ato = {C:0, D:1}
     
         
-class InfoFSM(axl.Player):
+class InfoFSM():
     """
     Finite State Machine with counters to allow for delayed exit
     We don't pay for information when we wait in the current state
     or make the same transition no matter the opponents move
     """
-    name = "Info FSM Player"
-
-    classifier = {
-        "memory_depth": 1,
-        "stochastic": False,
-        "makes_use_of": set(),
-        "long_run_time": False,
-        "inspects_source": False,
-        "manipulates_source": False,
-        "manipulates_state": False,
-    }
-
     def __init__(self, transitions: tuple) -> None:
         super().__init__()
         self._states = [State((coop, defect), wait, action)
                 for coop, defect, wait, action
                 in transitions]
         self._curr = self._states[0] # Assume that the initial state is always state 0
-        self.modifiers = []
+        self.modifiers = [0] # Always move blind on the first move
         self._counter = 0
         self._raise_error_for_bad_input()
 
@@ -80,15 +66,15 @@ class InfoFSM(axl.Player):
             self.modifiers.append(0) 
             self._counter += 1
         return self._curr.action
-    
-    def strategy(self, opponent: Player) -> Action:
-        if len(self.history) == 0:
-            self.modifiers.append(0)
-            return self._curr.action
-        return self.move(opponent.history[-1])
 
     def not_blind(self, state: State):
         return -int(state.transitions[0] != state.transitions[1])
+
+    def current_action(self):
+        return self._curr.action
+
+    def num_states(self):
+        return len(self._states)
     
     def _raise_error_for_bad_input(self):
         for state in self._states:
@@ -102,7 +88,30 @@ class InfoFSM(axl.Player):
             or state.transitions[1] > num_states
             or state.wait < 0):
             raise ValueError(f"{state} is an invalid state!")
-            
+
+class InfoFSMPlayer(Player):
+    """Abstract base class for INFO finite state machine players."""
+    name = "Info FSM Player"
+
+    classifier = {
+        "memory_depth": 1,
+        "stochastic": False,
+        "makes_use_of": set(),
+        "long_run_time": False,
+        "inspects_source": False,
+        "manipulates_source": False,
+        "manipulates_state": False,
+    }
+
+    def __init__(self, transitions: tuple) -> None:
+        super().__init__()
+        self.fsm = InfoFSM(transitions)
+    
+    def strategy(self, opponent: Player) -> Action:
+        if len(self.history) == 0:
+            return self.fsm.current_action()
+        return self.fsm.move(opponent.history[-1])
+
             
 """Generates a random FSM of the specified number of states"""
 def random_FSM_uniform(size: int, max_wait = 3):
@@ -116,31 +125,71 @@ def random_FSM_uniform(size: int, max_wait = 3):
     print(formula)
     return InfoFSM(formula)
 
-# Strats
-axl.seed(2)  # for reproducible example
+class EvolvableInfoFSM(InfoFSMPlayer, EvolvablePlayer):
+    """Abstract base class for evolvable INFO finite state machine players."""
+    name = "EvolvableInfoFSM"
 
-bTFT = InfoFSM(blinkingTFT_formula)
-dblbTFT = InfoFSM(dblblinkingTFT_formula)
-myAlternator = InfoFSM(alternator_formula)
-myDoubleAlternator = InfoFSM(double_alternator_formula)
-cooperator = InfoFSM(cooperator_formula)
-defector = InfoFSM(defector_formula)
+    classifier = {
+        "memory_depth": 1,
+        "stochastic": False,
+        "makes_use_of": set(),
+        "long_run_time": False,
+        "inspects_source": False,
+        "manipulates_source": False,
+        "manipulates_state": False,
+    }
 
+    def __init__(
+        self,
+        transitions: tuple = None,
+        num_states: int = None,
+        mutation_probability: float = 0.1,
+    ) -> None:
+        """If transitions is None
+        then generate random parameters using num_states."""
+        if transitions is None:
+            self.fsm = random_FSM_uniform(num_states)
+        InfoFSMPlayer.__init__(self, transitions=transitions)
+        EvolvablePlayer.__init__(self)
+        self.mutation_probability = mutation_probability
+        self.overwrite_init_kwargs(
+            transitions=transitions,
+            num_states=self.fsm.num_states())
 
-players = [bTFT, dblbTFT, myAlternator, myDoubleAlternator, cooperator, defector]
-for x in range(3):
-    players.append(random_FSM_uniform(3))
+    def mutate_row(self, row):
+        randoms = random.random(4)
 
-# Moran Process
-mp = MoranProcess(players=players, turns=200, modifier=True)
-populations = mp.play()
-print(mp.winning_strategy_name)
-ax = mp.populations_plot()
-plt.show()
+        # Mutate Coop transition
+        coop_transition = row.transitions[0]
+        if randoms[0] < self.mutation_probability:
+            coop_transition = random.randint(0,self.fsm.num_states())
 
-# players = (dblbTFT, myDoubleAlternator)
-# match = Match(players, 15)
-# print(match.play())
-# print(match.final_score_per_turn(), "\n")
-# print(match.modified_final_score_per_turn())
-# print(dblbTFT.modifiers)
+        # Mutate Defect transition
+        defect_transition = row.transitions[1]
+        if randoms[1] < self.mutation_probability:
+            defect_transition = random.randint(0,self.fsm.num_states())
+
+        # Mutate wait time (increment/decrement)
+        wait = row.wait
+        if randoms[2] < self.mutation_probability:
+            wait = np.max(0, wait + random.choice([-1,1]))
+
+        # Mutate Action
+        action = row.action
+        if randoms[3] < self.mutation_probability:
+            action = action.flip()
+
+        return tuple(coop_transition, defect_transition, wait, action)
+
+    def mutate(self):
+        transitions = []
+
+        # Mutate rows
+        for row in self.fsm._states:
+            transitions.append(self.mutate_row(row))
+
+        # Shuffle rows
+        if random.random() < mutation_probability:
+            random.shuffle(transitions)
+
+        return self.create_new(transitions=transitions)
