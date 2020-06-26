@@ -2,6 +2,7 @@
 import axelrod as axl
 import numpy.random as random
 import numpy as np
+from itertools import product
 from axelrod.action import Action
 from axelrod.player import Player
 from axelrod.match import Match
@@ -51,24 +52,23 @@ class InfoFSM():
                 for coop, defect, wait, action
                 in transitions]
         self._curr = self._states[0] # Assume that the initial state is always state 0
-        self.modifiers = [0] # Always move blind on the first move
         self._counter = 0
         self._raise_error_for_bad_input()
 
     def move(self, opponent_action: Action) -> Action:
-        """changes state then gives response"""
+        """changes state then gives response and wether it acted blind or not"""
         if self._counter >= self._curr.wait:
-            self.modifiers.append(self.not_blind(self._curr)) # Only pay for information if the transitions are different
+            pay = (not self.blind()) # Only pay for information if the transitions are different
             next_state = self._states[self._curr.transitions[ato[opponent_action]]]
             self._curr = next_state
             self._counter = 0
         else: # Ignore opponents move and stay in current state
-            self.modifiers.append(0) 
             self._counter += 1
-        return self._curr.action
+            pay = False
+        return (self._curr.action, pay)
 
-    def not_blind(self, state: State):
-        return -int(state.transitions[0] != state.transitions[1])
+    def blind(self):
+        return (self._curr.transitions[0] == self._curr.transitions[1])
 
     def current_action(self):
         return self._curr.action
@@ -103,18 +103,45 @@ class InfoFSMPlayer(Player):
         "manipulates_state": False,
     }
 
-    def __init__(self, transitions: tuple) -> None:
+    def __init__(self, transitions: tuple, name="") -> None:
         super().__init__()
         self.fsm = InfoFSM(transitions)
-    
+        if name == "":
+            self.name = f"InfoFSMPlayer:{transitions}"
+        else:
+            self.name = name
+
     def strategy(self, opponent: Player) -> Action:
         if len(self.history) == 0:
-            return self.fsm.current_action()
+            return (self.fsm.current_action(), False) # First move is always blind
         return self.fsm.move(opponent.history[-1])
 
-            
-"""Generates a random FSM of the specified number of states"""
+    """Alternative to 'strategy()'. takes a raw action rather than a player as input"""
+    def _response(self, action: Action) -> Action:
+        if len(self.history) == 0:
+            resp =  (self.fsm.current_action(), False) # First move is always blind
+        resp = self.fsm.move(action)
+
+        s, m = resp
+        self.update_history(s,action)
+        return s,m
+
+    def play(self, opponent, noise=0):
+        """Overwritten from base class to work with InfoPlayer"""
+        resp1, resp2 = self.strategy(opponent), opponent.strategy(self)
+        s1, m1 = resp1
+        s2, m2 = resp2
+
+        self.update_history(s1, s2)
+        opponent.update_history(s2, s1)
+        return (s1, s2), (m1, m2)
+
+    def __repr__(self):
+        return self.name
+
+
 def random_FSM_uniform(size: int, max_wait = 3):
+    """Generates a random FSM of the specified number of states"""
     formula = []
     for _ in range(size):
         coop, defect = [random.randint(0, size-1) for _ in range(2)]
@@ -122,8 +149,21 @@ def random_FSM_uniform(size: int, max_wait = 3):
         action = random.choice([C,D])
         state = (coop, defect, wait, action)
         formula.append(state)
-    print(formula)
     return InfoFSM(formula)
+
+def state_generator(size = 2, max_wait = 3):
+    transitions = [i for i in range(size)]
+    waits = [i for i in range(max_wait)]
+    actions = [C, D]
+    for t1 in transitions:
+        for t2 in transitions:
+            for w in waits:
+                for a in actions:
+                    yield (t1, t2, w, a)
+
+def FSMPlayer_generator(size = 2, max_wait = 3):
+    for formula in product(*[state_generator(size ,max_wait) for _ in range(size)]):
+        yield InfoFSMPlayer(formula)
 
 class EvolvableInfoFSM(InfoFSMPlayer, EvolvablePlayer):
     """Abstract base class for evolvable INFO finite state machine players."""

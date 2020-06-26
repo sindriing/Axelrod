@@ -6,7 +6,9 @@ from typing import Callable, List, Optional, Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+import axelrod.interaction_utils as iu
 from axelrod import EvolvablePlayer, DEFAULT_TURNS, Game, Player
+
 
 from .deterministic_cache import DeterministicCache
 from .graph import Graph, complete_graph
@@ -15,8 +17,8 @@ from .random_ import randrange
 
 
 def fitness_proportionate_selection(
-    scores: List, fitness_transformation: Callable = None
-) -> int:
+    scores: List, fitness_transformation: Callable = (lambda x: x), count = 1
+) -> List:
     """Randomly selects an individual proportionally to score.
 
     Parameters
@@ -29,17 +31,19 @@ def fitness_proportionate_selection(
     An index of the above list selected at random proportionally to the list
     element divided by the total.
     """
-    if fitness_transformation is None:
-        csums = np.cumsum(scores)
-    else:
-        csums = np.cumsum([fitness_transformation(s) for s in scores])
+    csums = np.cumsum([fitness_transformation(s) for s in scores])
     total = csums[-1]
-    r = random.random() * total
 
-    for i, x in enumerate(csums):
-        if x >= r:
-            break
-    return i
+    rands = np.sort(np.random.randint(low=0, high=total, size=count))
+
+    c = 0
+    selections = []
+
+    for i, r in enumerate(rands):
+        while csums[c] <= r:
+            c += 1
+        selections.append(c)
+    return selections
 
 
 class MoranProcess(object):
@@ -49,7 +53,8 @@ class MoranProcess(object):
         turns: int = DEFAULT_TURNS,
         prob_end: float = None,
         noise: float = 0,
-        modifier = False, # sindri added
+        modifier = 0, 
+        births_per_iter = 1
         game: Game = None,
         deterministic_cache: DeterministicCache = None,
         mutation_rate: float = 0.0,
@@ -122,6 +127,7 @@ class MoranProcess(object):
         self.game = game
         self.noise = noise
         self.modifier = modifier
+        self.births_per_iter = births_per_iter
         self.initial_players = players  # save initial population
         self.players = []  # type: List
         self.populations = []  # type: List
@@ -254,14 +260,39 @@ class MoranProcess(object):
             # Make sure to get the correct index post-pop
             j = fitness_proportionate_selection(
                 scores, fitness_transformation=self.fitness_transformation
-            )
+            )[0]
             if j >= index:
                 j += 1
         else:
             j = fitness_proportionate_selection(
                 scores, fitness_transformation=self.fitness_transformation
-            )
+            )[0]
         return j
+
+    def step(self):
+        if self.stop_on_fixation and self.fixation_check():
+            raise StopIteration
+
+        scores = self.score_all()
+        births = self.fitness_proportionate_selection(
+            scores,
+            fitness_transformation = self.fitness_transformation
+            count = self.births_per_iter
+        )
+        deaths = random.sample(range(0, len(self.players)), self.birth_per_iter)
+        print("Birthing: ", birth)
+        print("Killing: ", deaths)
+        print("Before: ", self.players)
+        for b in births:
+            self.players.append(self.mutate(b))
+        for d in sorted(deaths, reverse=True):
+            self.players.pop(d)
+        print("After: ", self.players, "\n")
+
+        # Record population.
+        self.populations.append(self.population_distribution())
+
+
 
     def fixation_check(self) -> bool:
         """
@@ -313,6 +344,10 @@ class MoranProcess(object):
         self.populations.append(self.population_distribution())
         return self
 
+    def step():
+        """ play a round and replace a proportion of the population (i.e. can take large steps) in the evolution """
+        pass
+
     def _matchup_indices(self) -> Set[Tuple[int, int]]:
         """
         Generate the matchup pairs.
@@ -363,12 +398,14 @@ class MoranProcess(object):
                 turns=self.turns,
                 prob_end=self.prob_end,
                 noise=self.noise,
+                modifier=self.modifier,
                 game=self.game,
                 deterministic_cache=self.deterministic_cache,
             )
             match.play()
-            if self.modifier:
+            if self.modifier != 0:
                 match_scores = match.modified_final_score_per_turn()
+                # print(f"{player1}: {match_scores} : {player2}")
             else:
                 match_scores = match.final_score_per_turn()
             scores[i] += match_scores[0]
@@ -469,6 +506,22 @@ class MoranProcess(object):
         ax.set_ylabel("Number of Individuals")
         ax.legend()
         return ax
+
+    def statistics(self, scale=1):
+        stats = {}
+        for key in self.deterministic_cache:
+            result = self.deterministic_cache.data[key]
+            interactions = [r[0] for r in result]
+            mods = [r[1] for r in result]
+            score_av = iu.compute_final_score_per_turn(interactions, self.game)
+            mod_av = np.mean(mods, axis=0)
+            combined_av = tuple(s - m*scale for m, s in zip(mod_av, score_av))
+            stats[key] = {"Score": score_av,
+                          "Modifiers": mod_av,
+                          "Combined": combined_av}
+        return stats
+
+
 
 
 class ApproximateMoranProcess(MoranProcess):

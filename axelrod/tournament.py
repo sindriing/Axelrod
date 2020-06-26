@@ -31,6 +31,7 @@ class Tournament(object):
         prob_end: float = None,
         repetitions: int = 10,
         noise: float = 0,
+        modifiers = False,
         edges: List[Tuple] = None,
         match_attributes: dict = None,
     ) -> None:
@@ -83,6 +84,7 @@ class Tournament(object):
             repetitions=self.repetitions,
             prob_end=prob_end,
             noise=self.noise,
+            modifiers=self.modifiers,
             edges=edges,
             match_attributes=match_attributes,
         )
@@ -442,6 +444,7 @@ class Tournament(object):
     def _calculate_results(self, interactions):
         results = []
 
+        # Change here sindri !
         scores = iu.compute_final_score(interactions, self.game)
         results.append(scores)
 

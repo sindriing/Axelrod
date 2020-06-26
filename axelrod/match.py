@@ -29,7 +29,7 @@ class Match(object):
         game=None,
         deterministic_cache=None,
         noise=0,
-        modifiers=False,
+        modifier=0, # Scale the modifier
         match_attributes=None,
         reset=True,
     ):
@@ -66,6 +66,7 @@ class Match(object):
 
         self.result = []
         self.noise = noise
+        self.modifier = modifier
 
         if game is None:
             self.game = Game()
@@ -167,7 +168,11 @@ class Match(object):
         else:
             result = self._cache[cache_key][:turns]
 
-        self.result = result
+        if self.modifier != 0:
+            self.result = [s[0] for s in result]
+            self.mods = [s[1] for s in result]
+        else:
+            self.result = result
         return result
 
     def scores(self):
@@ -183,11 +188,11 @@ class Match(object):
         return iu.compute_final_score_per_turn(self.result, self.game)
 
     def modified_final_score_per_turn(self):
-        """Returns the mean score per round for Match including the modifiers"""
-        modifiers = (self._players[0].modifiers, self._players[1].modifiers)
-        modifier_average = [mean(m) for m in modifiers]
+        """Returns the mean score per round for Match including the player modifier"""
+        # TODO add modifier scaling
+        modifier_average = mean(self.mods, axis=0)
         score_average = iu.compute_final_score_per_turn(self.result, self.game)
-        return [s + m for s, m in zip(modifier_average, score_average)]
+        return tuple(s - (m*self.modifier) for m, s in zip(modifier_average, score_average))
 
     def winner(self):
         """Returns the winner of the Match."""

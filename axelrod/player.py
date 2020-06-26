@@ -15,8 +15,9 @@ C, D = Action.C, Action.D
 
 
 def simultaneous_play(player, coplayer, noise=0):
-    """This pits two players against each other."""
+    """This pits two players against each other.  """
     s1, s2 = player.strategy(coplayer), coplayer.strategy(player)
+
     if noise:
         s1 = random_flip(s1, noise)
         s2 = random_flip(s2, noise)

@@ -19,6 +19,7 @@ from typing import List, Tuple
 from axelrod import Classifiers
 from .action import Action
 from .player import Player
+import numpy as np
 
 CachePlayerKey = Tuple[Player, Player]
 CacheKey = Tuple[str, str]
@@ -173,3 +174,5 @@ class DeterministicCache(UserDict):
                 "Try deleting and re-building the cache file."
             )
         return True
+
+
