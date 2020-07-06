@@ -451,10 +451,10 @@ class MoranProcess(object):
                 cooperations += 1 - sum([ATO[x[0]]+ATO[x[1]] for x in match.result]) / (2*self.turns)
                 blindness += sum([x[0]+x[1] for x in match.mods]) / (2*self.turns)
 
-        self.coop_history.append(cooperations/match_count)
-        self.blind_history.append(blindness/match_count)
+        if self.extra_statistics:
+            self.coop_history.append(cooperations/match_count)
+            self.blind_history.append(blindness/match_count)
         self.score_history.append(scores)
-        print("Match Count: ", match_count)
         return scores
 
     def population_distribution(self) -> Counter:
