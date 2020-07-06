@@ -2,6 +2,7 @@
 import axelrod as axl
 import numpy.random as random
 import numpy as np
+import itertools as it
 from itertools import product
 from axelrod.action import Action
 from axelrod.player import Player
@@ -12,34 +13,14 @@ from typing import NamedTuple
 
 C,D = Action.C, Action.D
 
-# Formulas for FSM
-blinkingTFT_formula = ((1,2,0,C),
-                       (1,2,1,C),
-                       (0,2,0,D))
-dblblinkingTFT_formula = ((1,2,0,C),
-                         (1,2,1,C),
-                         (0,2,1,D))
-
-alternator_formula = ((1,1,0,C),
-                      (0,0,0,D))
-
-double_alternator_formula = ((1,1,1,C),
-                             (0,0,1,D))
-
-cooperator_formula = ((0,0,0,C),)
-defector_formula = ((0,0,0,D),)
-
-
 class State(NamedTuple):
     transitions: tuple
     wait: int
     action: Action
         
-
 # Action enum to int
 ato = {C:0, D:1}
-    
-        
+
 class InfoFSM():
     """
     Finite State Machine with counters to allow for delayed exit
@@ -107,7 +88,7 @@ class InfoFSMPlayer(Player):
         super().__init__()
         self.fsm = InfoFSM(transitions)
         if name == "":
-            self.name = f"InfoFSMPlayer:{transitions}"
+            self.name = str(transitions)
         else:
             self.name = name
 
@@ -164,6 +145,23 @@ def state_generator(size = 2, max_wait = 3):
 def FSMPlayer_generator(size = 2, max_wait = 3):
     for formula in product(*[state_generator(size ,max_wait) for _ in range(size)]):
         yield InfoFSMPlayer(formula)
+
+def find_unique_FSMs(players):
+    possible_actions = [C, D]
+    RESPONSES = list(it.product(possible_actions, repeat=8))
+    fingerprint = {}
+    for p in players:
+        history = []
+        for resp in RESPONSES:
+            p.reset()
+            for action in resp:
+                temp = p._response(action)
+                history.extend((ato[temp[0]], temp[1]))
+        history = tuple(history)
+        if history not in fingerprint:
+            fingerprint[history] = p
+    return list(fingerprint.values())
+        
 
 class EvolvableInfoFSM(InfoFSMPlayer, EvolvablePlayer):
     """Abstract base class for evolvable INFO finite state machine players."""

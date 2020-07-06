@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import axelrod.interaction_utils as iu
 from axelrod import EvolvablePlayer, DEFAULT_TURNS, Game, Player
+from axelrod.action import Action
 
 
 from .deterministic_cache import DeterministicCache
@@ -15,11 +16,12 @@ from .graph import Graph, complete_graph
 from .match import Match
 from .random_ import randrange
 
-
+C,D = Action.C, Action.D
+ATO = {C:0, D:1}
 def fitness_proportionate_selection(
     scores: List, fitness_transformation: Callable = (lambda x: x), count = 1
 ) -> List:
-    """Randomly selects an individual proportionally to score.
+    """Randomly selects individuals proportionally to score.
 
     Parameters
     ----------
@@ -27,20 +29,20 @@ def fitness_proportionate_selection(
     fitness_transformation: A function mapping a score to a (non-negative) float
 
     Returns
-    -------
+    -----
     An index of the above list selected at random proportionally to the list
     element divided by the total.
     """
     csums = np.cumsum([fitness_transformation(s) for s in scores])
     total = csums[-1]
 
-    rands = np.sort(np.random.randint(low=0, high=total, size=count))
+    rands = np.sort(np.random.random(size=count)*total)
 
     c = 0
     selections = []
 
     for i, r in enumerate(rands):
-        while csums[c] <= r:
+        while csums[c] < r:
             c += 1
         selections.append(c)
     return selections
@@ -53,8 +55,9 @@ class MoranProcess(object):
         turns: int = DEFAULT_TURNS,
         prob_end: float = None,
         noise: float = 0,
-        modifier = 0, 
-        births_per_iter = 1
+        modifier = None, 
+        births_per_iter = 1,
+        extra_statistics = False,
         game: Game = None,
         deterministic_cache: DeterministicCache = None,
         mutation_rate: float = 0.0,
@@ -128,11 +131,14 @@ class MoranProcess(object):
         self.noise = noise
         self.modifier = modifier
         self.births_per_iter = births_per_iter
+        self.extra_statistics = extra_statistics
         self.initial_players = players  # save initial population
         self.players = []  # type: List
         self.populations = []  # type: List
         self.set_players()
         self.score_history = []  # type: List
+        self.coop_history = []  # type: List
+        self.blind_history = []  # type: List
         self.winning_strategy_name = None  # type: Optional[str]
         self.mutation_rate = mutation_rate
         self.stop_on_fixation = stop_on_fixation
@@ -162,6 +168,9 @@ class MoranProcess(object):
         for key in sorted(keys):
             mutation_targets[key] = [v for (k, v) in sorted(d.items()) if k != key]
         self.mutation_targets = mutation_targets
+
+        # Used for storing cooperation and blindness statistics
+        self.player_stats = {str(p): [0,0] for p in self.players}
 
         if interaction_graph is None:
             interaction_graph = complete_graph(len(players), loops=False)
@@ -269,28 +278,31 @@ class MoranProcess(object):
             )[0]
         return j
 
-    def step(self):
+    def next_step(self):
+        """ play a round and replace a proportion of the population (i.e. can take large steps) in the evolution """
         if self.stop_on_fixation and self.fixation_check():
             raise StopIteration
 
         scores = self.score_all()
-        births = self.fitness_proportionate_selection(
+        births = fitness_proportionate_selection(
             scores,
-            fitness_transformation = self.fitness_transformation
+            fitness_transformation = self.fitness_transformation,
             count = self.births_per_iter
         )
-        deaths = random.sample(range(0, len(self.players)), self.birth_per_iter)
-        print("Birthing: ", birth)
-        print("Killing: ", deaths)
-        print("Before: ", self.players)
+        deaths = random.sample(range(0, len(self.players)), self.births_per_iter)
+        # print("Scores: ", scores)
+        # print("Birthing: ", births)
+        # print("Killing: ", deaths)
+        # print("Before: ", self.players)
         for b in births:
             self.players.append(self.mutate(b))
         for d in sorted(deaths, reverse=True):
             self.players.pop(d)
-        print("After: ", self.players, "\n")
+        # print("After: ", self.players, "\n")
 
         # Record population.
         self.populations.append(self.population_distribution())
+        return self
 
 
 
@@ -344,9 +356,31 @@ class MoranProcess(object):
         self.populations.append(self.population_distribution())
         return self
 
-    def step():
-        """ play a round and replace a proportion of the population (i.e. can take large steps) in the evolution """
-        pass
+    def __getstate__(self):
+        attributes = self.__dict__.copy()
+        del attributes['interaction_graph']
+        del attributes['reproduction_graph']
+        del attributes['fitness_transformation']
+        return attributes
+
+    def __setstate__(self, state):
+        self.__dict__ = state
+
+        # For now just assume that the interaction graph is the complete graph
+        interaction_graph = complete_graph(len(self.players), loops=False)
+        reproduction_graph = Graph(
+            interaction_graph.edges, directed=interaction_graph.directed
+        )
+        reproduction_graph.add_loops()
+        # Check equal vertices
+        v1 = interaction_graph.vertices
+        v2 = reproduction_graph.vertices
+        assert list(v1) == list(v2)
+        self.interaction_graph = interaction_graph
+        self.reproduction_graph = reproduction_graph
+        # has to be set manually since the function cant be pickled
+        self.fitness_transformation = lambda x: x
+
 
     def _matchup_indices(self) -> Set[Tuple[int, int]]:
         """
@@ -390,6 +424,8 @@ class MoranProcess(object):
         """
         N = len(self.players)
         scores = [0] * N
+        match_count = len(self.players) * len(self.players) // 2
+        cooperations, blindness = 0, 0
         for i, j in self._matchup_indices():
             player1 = self.players[i]
             player2 = self.players[j]
@@ -403,14 +439,22 @@ class MoranProcess(object):
                 deterministic_cache=self.deterministic_cache,
             )
             match.play()
-            if self.modifier != 0:
+            if self.modifier is None:
+                match_scores = match.final_score_per_turn()
+            else:
                 match_scores = match.modified_final_score_per_turn()
                 # print(f"{player1}: {match_scores} : {player2}")
-            else:
-                match_scores = match.final_score_per_turn()
             scores[i] += match_scores[0]
             scores[j] += match_scores[1]
+
+            if self.extra_statistics:
+                cooperations += 1 - sum([ATO[x[0]]+ATO[x[1]] for x in match.result]) / (2*self.turns)
+                blindness += sum([x[0]+x[1] for x in match.mods]) / (2*self.turns)
+
+        self.coop_history.append(cooperations/match_count)
+        self.blind_history.append(blindness/match_count)
         self.score_history.append(scores)
+        print("Match Count: ", match_count)
         return scores
 
     def population_distribution(self) -> Counter:
@@ -470,7 +514,7 @@ class MoranProcess(object):
         """
         return len(self.populations)
 
-    def populations_plot(self, ax=None):
+    def populations_plot(self, ax=None, top_player_count=10):
         """
         Create a stackplot of the population distributions at each iteration of
         the Moran process.
@@ -480,13 +524,25 @@ class MoranProcess(object):
         ax: matplotlib axis
             Allows the plot to be written to a given matplotlib axis.
             Default is None.
+        top_player_count: int
+            How many of the top players to include
+            Default is all players
 
         Returns
         -----------
         A matplotlib axis object
 
         """
-        player_names = self.populations[0].keys()
+
+        # Finds the names of the top players to plot
+        last_index = 0
+        for i, pop in enumerate(reversed(self.populations)):
+            if len(pop) > top_player_count:
+                last_index = len(self.populations) - 1 - i
+                break
+
+        player_names = [x[0] for x in self.populations[last_index].most_common()]
+
         if ax is None:
             _, ax = plt.subplots()
         else:
@@ -501,10 +557,10 @@ class MoranProcess(object):
             domain = range(len(values))
 
         ax.stackplot(domain, plot_data, labels=labels)
-        ax.set_title("Moran Process Population by Iteration")
+        ax.set_title("Moran Process Population of by Iteration")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Number of Individuals")
-        ax.legend()
+        ax.legend(loc='upper left')
         return ax
 
     def statistics(self, scale=1):
@@ -520,9 +576,6 @@ class MoranProcess(object):
                           "Modifiers": mod_av,
                           "Combined": combined_av}
         return stats
-
-
-
 
 class ApproximateMoranProcess(MoranProcess):
     """
@@ -575,6 +628,8 @@ class ApproximateMoranProcess(MoranProcess):
                 scores[i] += cached_score[0]
                 scores[j] += cached_score[1]
         self.score_history.append(scores)
+
+
         return scores
 
     def _get_scores_from_cache(self, player_names: Tuple) -> Tuple:

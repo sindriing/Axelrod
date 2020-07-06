@@ -168,11 +168,14 @@ class Match(object):
         else:
             result = self._cache[cache_key][:turns]
 
-        if self.modifier != 0:
+        # Since InfoFSMs return ((move1, move2), (cost1, cost2)) we need to botch 
+        # this a bit to make it work
+        if self.modifier is None:
+            if isinstance(result[0], tuple):
+                self.result = [s[0] for s in result]
+        else:
             self.result = [s[0] for s in result]
             self.mods = [s[1] for s in result]
-        else:
-            self.result = result
         return result
 
     def scores(self):
@@ -189,7 +192,6 @@ class Match(object):
 
     def modified_final_score_per_turn(self):
         """Returns the mean score per round for Match including the player modifier"""
-        # TODO add modifier scaling
         modifier_average = mean(self.mods, axis=0)
         score_average = iu.compute_final_score_per_turn(self.result, self.game)
         return tuple(s - (m*self.modifier) for m, s in zip(modifier_average, score_average))
