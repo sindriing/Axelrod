@@ -20,10 +20,11 @@ print("Number of players: ", len(unique_players))
 
 players = unique_players
 
-iterations = 30
+iterations = 15
 modifier = 0.2
 w=5
 ft = lambda x: max(0, 1-w+w*x/len(players))
+
 # Moran Process
 mp = MoranProcess(
     players=players,
