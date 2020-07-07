@@ -361,6 +361,7 @@ class MoranProcess(object):
         del attributes['interaction_graph']
         del attributes['reproduction_graph']
         del attributes['fitness_transformation']
+        del attributes['deterministic_cache']
         return attributes
 
     def __setstate__(self, state):
