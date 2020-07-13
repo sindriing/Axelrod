@@ -482,6 +482,8 @@ class MoranProcess(object):
         """Reset the process to replay."""
         self.winning_strategy_name = None
         self.score_history = []
+        self.coop_history = []
+        self.blind_history = []
         # Reset all the players
         self.set_players()
 
