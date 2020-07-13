@@ -121,16 +121,20 @@ class InfoFSMPlayer(Player):
         return self.name
 
 
-def random_FSM_uniform(size: int, max_wait = 3):
+def random_FSM_uniform(size: int, max_wait = 3, formula=False):
     """Generates a random FSM of the specified number of states"""
     formula = []
     for _ in range(size):
-        coop, defect = [random.randint(0, size-1) for _ in range(2)]
+        coop, defect = [random.randint(0, size) for _ in range(2)]
         wait = random.randint(0, max_wait)
         action = random.choice([C,D])
         state = (coop, defect, wait, action)
         formula.append(state)
-    return InfoFSM(formula)
+    if formula:
+        return formula
+    else: 
+        InfoFSM(formula)
+
 
 def state_generator(size = 2, max_wait = 3):
     transitions = [i for i in range(size)]
@@ -186,7 +190,7 @@ class EvolvableInfoFSM(InfoFSMPlayer, EvolvablePlayer):
         """If transitions is None
         then generate random parameters using num_states."""
         if transitions is None:
-            self.fsm = random_FSM_uniform(num_states)
+            transitions = random_FSM_uniform(size=num_states, formula=True)
         InfoFSMPlayer.__init__(self, transitions=transitions)
         EvolvablePlayer.__init__(self)
         self.mutation_probability = mutation_probability
@@ -210,14 +214,14 @@ class EvolvableInfoFSM(InfoFSMPlayer, EvolvablePlayer):
         # Mutate wait time (increment/decrement)
         wait = row.wait
         if randoms[2] < self.mutation_probability:
-            wait = np.max(0, wait + random.choice([-1,1]))
+            wait = np.max([0, wait + random.choice([-1,1])])
 
         # Mutate Action
         action = row.action
         if randoms[3] < self.mutation_probability:
             action = action.flip()
 
-        return tuple(coop_transition, defect_transition, wait, action)
+        return (coop_transition, defect_transition, wait, action)
 
     def mutate(self):
         transitions = []
@@ -227,7 +231,7 @@ class EvolvableInfoFSM(InfoFSMPlayer, EvolvablePlayer):
             transitions.append(self.mutate_row(row))
 
         # Shuffle rows
-        if random.random() < mutation_probability:
+        if random.random() < self.mutation_probability:
             random.shuffle(transitions)
 
         return self.create_new(transitions=transitions)

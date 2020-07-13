@@ -362,6 +362,7 @@ class MoranProcess(object):
         del attributes['reproduction_graph']
         del attributes['fitness_transformation']
         del attributes['deterministic_cache']
+        del attributes['mutation_targets']
         return attributes
 
     def __setstate__(self, state):
@@ -381,6 +382,7 @@ class MoranProcess(object):
         self.reproduction_graph = reproduction_graph
         # has to be set manually since the function cant be pickled
         self.fitness_transformation = lambda x: x
+        self.deterministic_cache = DeterministicCache()
 
 
     def _matchup_indices(self) -> Set[Tuple[int, int]]:
@@ -517,7 +519,7 @@ class MoranProcess(object):
         """
         return len(self.populations)
 
-    def populations_plot(self, ax=None, top_player_count=10):
+    def populations_plot(self, ax=None, top_player_count=10, legend=True):
         """
         Create a stackplot of the population distributions at each iteration of
         the Moran process.
@@ -563,7 +565,8 @@ class MoranProcess(object):
         ax.set_title("Moran Process Population of by Iteration")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Number of Individuals")
-        ax.legend(loc='upper left')
+        if legend:
+            ax.legend(loc='upper left')
         return ax
 
     def statistics(self, scale=1):
