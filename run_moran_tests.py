@@ -20,20 +20,20 @@ for p in FSMPlayer_generator(size = 2, max_wait = 2):
 print("Number of two state players: ", len(two_state_players))
 
 unique_players = find_unique_FSMs(two_state_players) + one_state_players
-print("Number of unique players: ", len(two_state_players))
+print("Number of unique players: ", len(unique_players))
 
 players = unique_players
 
 # Test parameters
-test_repeats = 6
+test_repeats = 1
 test_intervals = 0.2
-test_max_information_cost = 2.0
-test_min_information_cost = 0
-iterations = 300
+test_min_information_cost = 0.4
+test_max_information_cost = 0.8
+iterations = 50
 w=5
 ft = lambda x: max(0, 1-w+w*x/len(players))
 
-for info_cost in np.arange(0, test_max_information_cost + test_intervals, test_intervals):
+for info_cost in np.arange(test_min_information_cost, test_max_information_cost + test_intervals, test_intervals):
     for test in range(test_repeats):
         print(f"Running test {info_cost} - {test+1} ")
         if test == 0:
@@ -43,7 +43,7 @@ for info_cost in np.arange(0, test_max_information_cost + test_intervals, test_i
                 modifier=info_cost,
                 extra_statistics=True,
                 fitness_transformation=ft,
-                births_per_iter=len(players)//10) # 10% of players die every round
+                births_per_iter=len(players)//20) # 5% of players die every round
         else:
             # Reset is quicker than creating a new process
             mp.reset()
