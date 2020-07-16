@@ -157,21 +157,20 @@ class MoranProcess(object):
             self.deterministic_cache = deterministic_cache
         else:
             self.deterministic_cache = DeterministicCache()
-        # Build the set of mutation targets
-        # Determine the number of unique types (players)
-        keys = set([str(p) for p in players])
-        # Create a dictionary mapping each type to a set of representatives
-        # of the other types
-        d = dict()
-        for p in players:
-            d[str(p)] = p
-        mutation_targets = dict()
-        for key in sorted(keys):
-            mutation_targets[key] = [v for (k, v) in sorted(d.items()) if k != key]
-        self.mutation_targets = mutation_targets
 
-        # Used for storing cooperation and blindness statistics
-        self.player_stats = {str(p): [0,0] for p in self.players}
+        if self.mutation_rate > 0
+            # Build the set of mutation targets
+            # Determine the number of unique types (players)
+            keys = set([str(p) for p in players])
+            # Create a dictionary mapping each type to a set of representatives
+            # of the other types
+            d = dict()
+            for p in players:
+                d[str(p)] = p
+            mutation_targets = dict()
+            for key in sorted(keys):
+                mutation_targets[key] = [v for (k, v) in sorted(d.items()) if k != key]
+            self.mutation_targets = mutation_targets
 
         if interaction_graph is None:
             interaction_graph = complete_graph(len(players), loops=False)
