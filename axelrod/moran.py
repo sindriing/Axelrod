@@ -279,9 +279,10 @@ class MoranProcess(object):
         return j
 
     def next_step(self):
-        """ play a round and replace a proportion of the population (i.e. can take large steps) in the evolution """
+        """ play a round and replace a proportion of the population (i.e. can take large steps) in the evolution,
+            Returns a bool indicating whether the population has fixated or not"""
         if self.stop_on_fixation and self.fixation_check():
-            raise StopIteration
+            return False
 
         scores = self.score_all()
         births = fitness_proportionate_selection(
@@ -302,7 +303,7 @@ class MoranProcess(object):
 
         # Record population.
         self.populations.append(self.population_distribution())
-        return self
+        return True
 
 
 
