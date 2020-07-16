@@ -21,12 +21,12 @@ print(len(players))
 test_repeats = 2
 test_intervals = 0.2
 test_max_information_cost = 2.0
-test_min_information_cost = 0
+test_min_information_cost = 0.4
 iterations = 200
 w=5
 ft = lambda x: max(0, 1-w+w*x/len(players))
 
-for info_cost in np.arange(0, test_max_information_cost + test_intervals, test_intervals):
+for info_cost in np.arange(test_min_information_cost, test_max_information_cost + test_intervals, test_intervals):
     for test in range(test_repeats):
         print(f"Running test {info_cost} - {test+1} ")
         if test == 0:
@@ -42,7 +42,9 @@ for info_cost in np.arange(0, test_max_information_cost + test_intervals, test_i
             mp.reset()
 
         for i in trange(iterations):
-            mp.next_step()
+            if not mp.next_step():
+                print("Population has fixated")
+                break
 
         with open(f'pickles/mp_{int(info_cost*10)}-{test}.pickle', 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.
