@@ -146,13 +146,14 @@ def state_generator(size = 2, max_wait = 3):
                 for a in actions:
                     yield (t1, t2, w, a)
 
-def FSMPlayer_generator(size = 2, max_wait = 3):
-    for formula in product(*[state_generator(size ,max_wait) for _ in range(size)]):
+def FSMPlayer_generator(size = 2, max_wait = 2):
+    for formula in product(*[state_generator(size ,max_wait+1) for _ in range(size)]):
         yield InfoFSMPlayer(formula)
 
-def find_unique_FSMs(players):
+
+def find_unique_FSMs(players, repeat=8):
     possible_actions = [C, D]
-    RESPONSES = list(it.product(possible_actions, repeat=8))
+    RESPONSES = list(it.product(possible_actions, repeat=repeat))
     fingerprint = {}
     for p in players:
         history = []
@@ -160,12 +161,12 @@ def find_unique_FSMs(players):
             p.reset()
             for action in resp:
                 temp = p._response(action)
-                history.extend((ato[temp[0]], temp[1]))
+                history.append((ato[temp[0]]))
         history = tuple(history)
-        if history not in fingerprint:
-            fingerprint[history] = p
+        if sum(history) != 0 and sum(history) != len(history):
+            if history not in fingerprint:
+                fingerprint[history] = p
     return list(fingerprint.values())
-        
 
 class EvolvableInfoFSM(InfoFSMPlayer, EvolvablePlayer):
     """Abstract base class for evolvable INFO finite state machine players."""
