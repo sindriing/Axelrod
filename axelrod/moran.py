@@ -136,7 +136,8 @@ class MoranProcess(object):
         self.players = []  # type: List
         self.populations = []  # type: List
         self.set_players()
-        self.score_history = []  # type: List
+        # self.score_history = []  # type: List
+        self.population_score_history = []  # type: List
         self.coop_history = []  # type: List
         self.blind_history = []  # type: List
         self.winning_strategy_name = None  # type: Optional[str]
@@ -290,15 +291,10 @@ class MoranProcess(object):
             count = self.births_per_iter
         )
         deaths = random.sample(range(0, len(self.players)), self.births_per_iter)
-        # print("Scores: ", scores)
-        # print("Birthing: ", births)
-        # print("Killing: ", deaths)
-        # print("Before: ", self.players)
         for b in births:
             self.players.append(self.mutate(b))
         for d in sorted(deaths, reverse=True):
             self.players.pop(d)
-        # print("After: ", self.players, "\n")
 
         # Record population.
         self.populations.append(self.population_distribution())
@@ -457,7 +453,8 @@ class MoranProcess(object):
         if self.extra_statistics:
             self.coop_history.append(cooperations/match_count)
             self.blind_history.append(blindness/match_count)
-        self.score_history.append(scores)
+        # self.score_history.append(scores)
+        self.population_score_history.append(sum(scores)/len(scores))
         return scores
 
     def population_distribution(self) -> Counter:
@@ -483,7 +480,8 @@ class MoranProcess(object):
     def reset(self) -> None:
         """Reset the process to replay."""
         self.winning_strategy_name = None
-        self.score_history = []
+        # self.score_history = []
+        self.population_score_history = []
         self.coop_history = []
         self.blind_history = []
         # Reset all the players
@@ -633,7 +631,7 @@ class ApproximateMoranProcess(MoranProcess):
                 cached_score = self._get_scores_from_cache(player_names)
                 scores[i] += cached_score[0]
                 scores[j] += cached_score[1]
-        self.score_history.append(scores)
+        # self.score_history.append(scores)
 
 
         return scores
