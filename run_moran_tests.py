@@ -49,7 +49,9 @@ for info_cost in np.arange(test_min_information_cost, test_max_information_cost 
             mp.reset()
 
         for i in trange(iterations):
-            mp.next_step()
+            if not mp.next_step():
+                 print("Population has fixated")
+                 break
 
         with open(f'pickles/mp_cost-{int(info_cost*100)}_num-{test}.pickle', 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.

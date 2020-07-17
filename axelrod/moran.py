@@ -158,7 +158,7 @@ class MoranProcess(object):
         else:
             self.deterministic_cache = DeterministicCache()
 
-        if self.mutation_rate > 0
+        if self.mutation_rate > 0:
             # Build the set of mutation targets
             # Determine the number of unique types (players)
             keys = set([str(p) for p in players])
@@ -281,7 +281,8 @@ class MoranProcess(object):
     def next_step(self):
         """ play a round and replace a proportion of the population (i.e. can take large steps) in the evolution """
         if self.stop_on_fixation and self.fixation_check():
-            raise StopIteration
+            return False
+            # raise StopIteration
 
         scores = self.score_all()
         births = fitness_proportionate_selection(
@@ -297,8 +298,14 @@ class MoranProcess(object):
 
         # Record population.
         self.populations.append(self.population_distribution())
-        return self
+        return True
 
+    def ashlock_step(self):
+        scores = self.score_all()
+        combined = sorted(zip(players, scores))
+        elite = combined[:len(combined)*0.625]
+        victims = combined[len(combined)*0.625:]
+         
 
 
     def fixation_check(self) -> bool:
