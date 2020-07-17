@@ -27,7 +27,7 @@ players = unique_players
 # Test parameters
 test_repeats = 6
 test_intervals = 0.2
-test_min_information_cost = 0.0
+test_min_information_cost = 0.6
 test_max_information_cost = 2.0
 iterations = 300
 w=5
@@ -51,6 +51,11 @@ for info_cost in np.arange(test_min_information_cost, test_max_information_cost 
         for i in trange(iterations):
             if not mp.next_step():
                 print("Population has fixated")
+                break
+        print("Top 3 players")
+        for i, p in enumerate(mp.populations[-1].most_common()):
+            print(p)
+            if i >= 2:
                 break
 
         with open(f'pickles/mp178_cost-{int(info_cost*100)}_num-{test}.pickle', 'wb') as f:
