@@ -25,11 +25,11 @@ print("Number of unique players: ", len(unique_players))
 players = unique_players
 
 # Test parameters
-test_repeats = 1
+test_repeats = 6
 test_intervals = 0.2
-test_min_information_cost = 0.4
-test_max_information_cost = 0.8
-iterations = 50
+test_min_information_cost = 0.0
+test_max_information_cost = 2.0
+iterations = 200
 w=5
 ft = lambda x: max(0, 1-w+w*x/len(players))
 
@@ -50,8 +50,8 @@ for info_cost in np.arange(test_min_information_cost, test_max_information_cost 
 
         for i in trange(iterations):
             if not mp.next_step():
-                 print("Population has fixated")
-                 break
+                print("Population has fixated")
+                break
 
         with open(f'pickles/mp_cost-{int(info_cost*100)}_num-{test}.pickle', 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.
