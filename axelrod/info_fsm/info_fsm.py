@@ -151,7 +151,24 @@ def FSMPlayer_generator(size = 2, max_wait = 2):
         yield InfoFSMPlayer(formula)
 
 
-def find_unique_FSMs(players, repeat=8):
+# def find_unique_FSMs(players, repeat=6):
+#     possible_actions = [C, D]
+#     RESPONSES = list(it.product(possible_actions, repeat=repeat))
+#     fingerprint = {}
+#     for p in players:
+#         history = []
+#         for resp in RESPONSES:
+#             p.reset()
+#             for action in resp:
+#                 temp = p._response(action)
+#                 history.append((ato[temp[0]]))
+#         history = tuple(history)
+#         if sum(history) != 0 and sum(history) != len(history):
+#             if history not in fingerprint:
+#                 fingerprint[history] = p
+#     return list(fingerprint.values())
+
+def generate_unique_FSMs(players, repeat=6):
     possible_actions = [C, D]
     RESPONSES = list(it.product(possible_actions, repeat=repeat))
     fingerprint = {}
@@ -163,10 +180,9 @@ def find_unique_FSMs(players, repeat=8):
                 temp = p._response(action)
                 history.append((ato[temp[0]]))
         history = tuple(history)
-        if sum(history) != 0 and sum(history) != len(history):
-            if history not in fingerprint:
-                fingerprint[history] = p
-    return list(fingerprint.values())
+        if history not in fingerprint:
+            fingerprint[history] = p
+            yield p
 
 class EvolvableInfoFSM(InfoFSMPlayer, EvolvablePlayer):
     """Abstract base class for evolvable INFO finite state machine players."""
@@ -186,7 +202,7 @@ class EvolvableInfoFSM(InfoFSMPlayer, EvolvablePlayer):
         self,
         transitions: tuple = None,
         num_states: int = None,
-        mutation_probability: float = 0.1,
+        mutation_probability: float = 0.02,
     ) -> None:
         """If transitions is None
         then generate random parameters using num_states."""
@@ -236,3 +252,9 @@ class EvolvableInfoFSM(InfoFSMPlayer, EvolvablePlayer):
             random.shuffle(transitions)
 
         return self.create_new(transitions=transitions)
+
+    def ashlock_mutation(self):
+        pass
+
+    def ashlock_crossover(self):
+        pass
