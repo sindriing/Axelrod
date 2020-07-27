@@ -1,10 +1,11 @@
 # Imports
 from axelrod.info_fsm.info_fsm import InfoFSMPlayer
 from axelrod.info_fsm.info_fsm import FSMPlayer_generator
-from axelrod.info_fsm.info_fsm import find_unique_FSMs
+from axelrod.info_fsm.info_fsm import generate_unique_FSMs
 from axelrod.moran import MoranProcess
 from tqdm import tqdm, trange
 import pickle
+import random   
 import numpy as np
 
 
@@ -64,7 +65,7 @@ for info_cost in np.arange(test_min_information_cost, test_max_information_cost 
             if i >= 2:
                 break
 
-        with open(f'pickles/mp178_cost-{int(info_cost*100)}_num-{test}.pickle', 'wb') as f:
+        with open(f'pickles/mp_threestate-{int(info_cost*100)}_num-{test}.pickle', 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.
             pickle.dump(mp, f)
 
