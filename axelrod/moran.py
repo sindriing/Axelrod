@@ -3,6 +3,7 @@
 import random
 from collections import Counter
 from typing import Callable, List, Optional, Set, Tuple
+from itertools import groupby
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -46,6 +47,11 @@ def fitness_proportionate_selection(
             c += 1
         selections.append(c)
     return selections
+
+def all_equal(iterable):
+    "Returns True if all the elements are equal to each other"
+    g = groupby(iterable)
+    return next(g, True) and not next(g, False)
 
 
 class MoranProcess(object):
@@ -136,7 +142,7 @@ class MoranProcess(object):
         self.players = []  # type: List
         self.populations = []  # type: List
         self.set_players()
-        # self.score_history = []  # type: List
+        self.score_history = []  # type: List
         self.population_score_history = []  # type: List
         self.coop_history = []  # type: List
         self.blind_history = []  # type: List
@@ -280,11 +286,14 @@ class MoranProcess(object):
 
     def next_step(self):
         """ play a round and replace a proportion of the population (i.e. can take large steps) in the evolution """
-        if self.stop_on_fixation and self.fixation_check():
-            return False
+        # if self.stop_on_fixation and self.fixation_check():
             # raise StopIteration
 
+        # If all scores are equal the population has fixated even if there are more than one strategy
+        
         scores = self.score_all()
+        if all_equal([round(s, 5) for s in scores]):
+            return False
         births = fitness_proportionate_selection(
             scores,
             fitness_transformation = self.fitness_transformation,
@@ -300,11 +309,11 @@ class MoranProcess(object):
         self.populations.append(self.population_distribution())
         return True
 
-    def ashlock_step(self):
-        scores = self.score_all()
-        combined = sorted(zip(players, scores))
-        elite = combined[:len(combined)*0.625]
-        victims = combined[len(combined)*0.625:]
+    # def ashlock_step(self):
+    #     scores = self.score_all()
+    #     combined = sorted(zip(players, scores))
+    #     elite = combined[:len(combined)*0.625]
+    #     victims = combined[len(combined)*0.625:]
          
 
 
@@ -364,6 +373,7 @@ class MoranProcess(object):
         del attributes['reproduction_graph']
         del attributes['fitness_transformation']
         del attributes['deterministic_cache']
+        del attributes['score_history']
         return attributes
 
     def __setstate__(self, state):
@@ -428,7 +438,7 @@ class MoranProcess(object):
         """
         N = len(self.players)
         scores = [0] * N
-        match_count = len(self.players) * len(self.players) // 2
+        match_count = len(self.players) * (len(self.players)-1) / 2
         cooperations, blindness = 0, 0
         for i, j in self._matchup_indices():
             player1 = self.players[i]
@@ -458,8 +468,10 @@ class MoranProcess(object):
         if self.extra_statistics:
             self.coop_history.append(cooperations/match_count)
             self.blind_history.append(blindness/match_count)
-        # self.score_history.append(scores)
-        self.population_score_history.append(sum(scores)/len(scores))
+        # Change total score to mean score
+        scores = [x/(len(self.players)-1) for x in scores]
+        self.score_history.append(scores)
+        self.population_score_history.append(sum(scores)/match_count)
         return scores
 
     def population_distribution(self) -> Counter:
@@ -485,7 +497,7 @@ class MoranProcess(object):
     def reset(self) -> None:
         """Reset the process to replay."""
         self.winning_strategy_name = None
-        # self.score_history = []
+        self.score_history = []
         self.population_score_history = []
         self.coop_history = []
         self.blind_history = []
@@ -636,7 +648,7 @@ class ApproximateMoranProcess(MoranProcess):
                 cached_score = self._get_scores_from_cache(player_names)
                 scores[i] += cached_score[0]
                 scores[j] += cached_score[1]
-        # self.score_history.append(scores)
+        self.score_history.append(scores)
 
 
         return scores
