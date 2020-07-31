@@ -36,6 +36,8 @@ def fitness_proportionate_selection(
     """
     csums = np.cumsum([fitness_transformation(s) for s in scores])
     total = csums[-1]
+    if total == 0:
+        raise StopIteration("Total scores are zero, fitness selection fails")
 
     rands = np.sort(np.random.random(size=count)*total)
 
@@ -292,7 +294,7 @@ class MoranProcess(object):
         # If all scores are equal the population has fixated even if there are more than one strategy
         
         scores = self.score_all()
-        if all_equal([round(s, 5) for s in scores]):
+        if all_equal([round(self.fitness_transformation(s), 3) for s in scores]):
             return False
         births = fitness_proportionate_selection(
             scores,
