@@ -33,10 +33,10 @@ players = unique_players
 print("Number of players in population: ", len(players))
 
 # Test parameters
-test_repeats = 1
-test_intervals = 2.0
+test_repeats = 15
+test_intervals = 0.5 
 test_min_information_cost = 0.0
-test_max_information_cost = 10.0
+test_max_information_cost = 7.0
 iterations = 500
 w=5
 ft = lambda x: max(0, 1-w+w*x)
