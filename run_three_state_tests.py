@@ -21,28 +21,38 @@ for p in FSMPlayer_generator(size = 3, max_wait = 2):
     three_state_players.append(p)
 print("Number of three state players: ", len(three_state_players))
 
-random.shuffle(three_state_players)
-temp_players = one_state_players + three_state_players
 
-unique_players = []
-for p in generate_unique_FSMs(temp_players):
-    unique_players.append(p)
-    if len(unique_players) >= 64:
-        break
-players = unique_players
-print("Number of players in population: ", len(players))
+# Generate batches of unique players
+test_repeats = 12
+player_batches = []
+for i in range(test_repeats):
+    random.shuffle(three_state_players)
+    temp_players = one_state_players + three_state_players
+    unique_players = []
+    for p in generate_unique_FSMs(temp_players):
+        unique_players.append(p)
+        if len(unique_players) >= 64:
+            break
+    player_batches.append(unique_players)
+
+# Free up memory 
+del temp_players
+del three_state_players
+
+print("Number of players in population: ", len(player_batches[0]))
+print("Number of players batches: ", len(player_batches))
 
 # Test parameters
-test_repeats = 15
-test_intervals = 0.5 
+test_intervals = 0.5
 test_min_information_cost = 0.0
-test_max_information_cost = 7.0
+test_max_information_cost = 6.0
 iterations = 500
 w=5
-ft = lambda x: max(0, 1-w+w*x)
+ft = lambda x: max(0.1, x, 1-w+w*x)
 
+# Run simulations
 for info_cost in np.arange(test_min_information_cost, test_max_information_cost + test_intervals, test_intervals):
-    for test in range(test_repeats):
+    for test, players in enumerate(player_batches):
         print(f"Running test {int(info_cost)} - {test+1} ")
         if test == 0:
             mp = MoranProcess(
