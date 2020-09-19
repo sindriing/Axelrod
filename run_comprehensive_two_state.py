@@ -41,7 +41,7 @@ ft = lambda x: max(0.1, x, 1-w+w*x)
 
 for info_cost in np.arange(test_min_information_cost, test_max_information_cost + test_intervals, test_intervals):
     for test in range(test_repeats):
-        print(f"Running test {int(info_cost)} - {test+1} ")
+        print(f"Running test {int(info_cost*100)} - {test+1} ")
         if test == 0:
             mp = MoranProcess(
                 players=players,
@@ -57,8 +57,8 @@ for info_cost in np.arange(test_min_information_cost, test_max_information_cost 
 
         # Run the simulation
         for i in trange(iterations):
-            if i>0 and i%100==0:
-                mp.births_per_iter += 2
+            if i>0 and i%50==0:
+                mp.births_per_iter += 1
             if not mp.next_step():
                 print("Population has fixated")
                 break
@@ -68,7 +68,7 @@ for info_cost in np.arange(test_min_information_cost, test_max_information_cost 
             if i >= 2:
                 break
 
-        with open(f'pickles/mp_two_state-{int(info_cost*100)}_num-{test}.pickle', 'wb') as f:
+        with open(f'pickles/mp_two_state-{int(info_cost*100)}_num-{test+6}.pickle', 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.
             pickle.dump(mp, f)
 

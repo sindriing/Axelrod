@@ -9,7 +9,7 @@ interactions.
 """
 from collections import Counter, defaultdict
 
-import pandas as pd
+# import pandas as pd
 import tqdm
 from axelrod.action import Action, str_to_actions
 
